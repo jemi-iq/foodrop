@@ -211,7 +211,14 @@ def show():
     hero_bytes = pathlib.Path("assets/hero.png").read_bytes()
     hero_b64   = base64.b64encode(hero_bytes).decode()
 
-    # Logo + boutons sur la même ligne en HTML pur
+    # Vérifie si un bouton navbar a été cliqué via query_params
+    params = st.query_params
+    if params.get("action"):
+        st.session_state.landing_action = params.get("action")
+        st.query_params.clear()
+        st.rerun()
+
+    # Navbar HTML — les boutons utilisent ?action= pour déclencher la navigation
     st.markdown(f"""
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <div style="display:flex; align-items:center; justify-content:space-between;
@@ -219,67 +226,58 @@ def show():
       <img src="data:image/svg+xml;base64,{logo_b64}"
            style="height:80px; width:auto;" alt="Foodrop">
       <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-        <button onclick="window.parent.postMessage({{type:'streamlit:setComponentValue', value:'asso'}}, '*')"
-          style="background:#2A5C1E; color:white; border:none; border-radius:50px;
+        <a href="?action=inscription_association" class="navbar-btn"
+          style="background:#2A5C1E; color:white !important; border:none; border-radius:50px;
                  font-family:'Syne',sans-serif; font-weight:700; font-size:0.88rem;
-                 padding:0.55rem 1.2rem; cursor:pointer; white-space:nowrap;">
+                 padding:0.6rem 1.2rem; cursor:pointer; white-space:nowrap;
+                 text-decoration:none; display:inline-block;">
           🤝 Inscrire mon association
-        </button>
-        <button style="background:#D4A820; color:white; border:none; border-radius:50px;
+        </a>
+        <a href="?action=inscription_magasin" class="navbar-btn"
+          style="background:#D4A820; color:white !important; border:none; border-radius:50px;
                  font-family:'Syne',sans-serif; font-weight:700; font-size:0.88rem;
-                 padding:0.55rem 1.2rem; cursor:pointer; white-space:nowrap;">
+                 padding:0.6rem 1.2rem; cursor:pointer; white-space:nowrap;
+                 text-decoration:none; display:inline-block;">
           🏪 Inscrire mon magasin
-        </button>
-        <button style="background:transparent; color:#2A5C1E; border:2px solid #2A5C1E;
+        </a>
+        <a href="?action=connexion" class="navbar-btn-outline"
+          style="background:transparent; color:#2A5C1E !important; border:2px solid #2A5C1E;
                  border-radius:50px; font-family:'Syne',sans-serif; font-weight:700;
-                 font-size:0.88rem; padding:0.55rem 1.2rem; cursor:pointer; white-space:nowrap;">
+                 font-size:0.88rem; padding:0.55rem 1.2rem; cursor:pointer; white-space:nowrap;
+                 text-decoration:none; display:inline-block;">
           🔑 Me connecter
-        </button>
+        </a>
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Boutons Streamlit — seule façon de déclencher st.rerun()
-    # On les cache visuellement avec du CSS et on garde la navbar HTML au-dessus
     st.markdown("""
     <style>
-      .cta-hidden { position:absolute; opacity:0; pointer-events:none; height:0; overflow:hidden; }
+      .navbar-btn { color: white !important; }
+      .navbar-btn-outline { color: #2A5C1E !important; }
     </style>
     """, unsafe_allow_html=True)
-
-    with st.container():
-        st.markdown('<div class="cta-hidden">', unsafe_allow_html=True)
-        col_b1, col_b2, col_b3 = st.columns(3)
-        with col_b1:
-            if st.button("🤝 Inscrire mon association", key="cta_asso", use_container_width=True):
-                st.session_state.landing_action = "inscription_association"
-                st.rerun()
-        with col_b2:
-            if st.button("🏪 Inscrire mon magasin", key="cta_mag", use_container_width=True):
-                st.session_state.landing_action = "inscription_magasin"
-                st.rerun()
-        with col_b3:
-            if st.button("🔑 Me connecter", key="cta_login", use_container_width=True):
-                st.session_state.landing_action = "connexion"
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── HERO IMAGE avec slogan en Playfair Display ─────────
     st.markdown(f"""
+    <style>
+      .hero-titre {{
+        font-family: 'Playfair Display', Georgia, serif !important;
+        font-size: clamp(2rem, 4vw, 3.2rem) !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+        line-height: 1.2 !important;
+        margin: 0 !important;
+        text-shadow: none !important;
+      }}
+    </style>
     <div style="position:relative; width:100%; border-radius:16px;
                 overflow:hidden; margin:0.5rem 0 0;">
       <img src="data:image/png;base64,{hero_b64}"
            style="width:100%; height:440px; object-fit:cover; object-position:center; display:block;">
       <div style="position:absolute; inset:0;
-                  background:linear-gradient(90deg, rgba(0,0,0,0.52) 0%,
-                  rgba(0,0,0,0.18) 60%, transparent 100%);"></div>
+                  background:linear-gradient(90deg, rgba(0,0,0,0.55) 0%,
+                  rgba(0,0,0,0.20) 60%, transparent 100%);"></div>
       <div style="position:absolute; top:50%; left:3.5rem; transform:translateY(-50%); max-width:540px;">
-        <h1 style="font-family:'Playfair Display', Georgia, serif !important;
-                   font-size:clamp(2rem,4vw,3.2rem); font-weight:700;
-                   color:#ffffff !important; line-height:1.2; margin:0;
-                   text-shadow:0 2px 12px rgba(0,0,0,0.5);">
-          Rien ne se perd,<br>tout se partage.
-        </h1>
+        <p class="hero-titre">Rien ne se perd,<br>tout se partage.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
