@@ -6,7 +6,7 @@ import streamlit as st
 
 st.set_page_config(
     page_title="Foodrop",
-    page_icon="🌿",
+    page_icon="assets/favicon.png",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -33,12 +33,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 from vues import auth
+from vues import landing
 from vues import creer_don
 from vues import dashboard_magasin
 from vues import chercher_don
 from vues import dashboard_association
 from vues import controle_reception
 from vues import gerer_dons
+from vues import gerer_reservations
+from vues import historique_magasin
+from vues import historique_association
+from vues import mes_informations
 
 if "connecte" not in st.session_state:
     st.session_state.connecte         = False
@@ -47,9 +52,18 @@ if "connecte" not in st.session_state:
     st.session_state.type_utilisateur = None
     st.session_state.entite_id        = None
 
+if "landing_action" not in st.session_state:
+    st.session_state.landing_action = None  # None = afficher la landing
+
 if not st.session_state.connecte:
-    auth.show()
-    st.stop()
+    # Si aucune action choisie → page d'accueil
+    if st.session_state.landing_action is None:
+        landing.show()
+        st.stop()
+    else:
+        # L'utilisateur a cliqué sur un bouton de la landing
+        auth.show(onglet_actif=st.session_state.landing_action)
+        st.stop()
 
 type_u = st.session_state.type_utilisateur
 
@@ -85,23 +99,13 @@ if type_u == "magasin":
     if page == "🏠 Dashboard":           dashboard_magasin.show()
     elif page == "➕ Créer un don":       creer_don.show()
     elif page == "📦 Gérer les dons":     gerer_dons.show()
-    elif page == "📋 Historique":
-        st.title("📋 Historique des dons")
-        st.info("🚧 Page en cours de construction — reviens bientôt !")
-    elif page == "👤 Mes informations":
-        st.title("👤 Mes informations")
-        st.info("🚧 Page en cours de construction — reviens bientôt !")
+    elif page == "📋 Historique":         historique_magasin.show()
+    elif page == "👤 Mes informations":   mes_informations.show()
 
 elif type_u == "association":
     if page == "🏠 Dashboard":             dashboard_association.show()
     elif page == "🔍 Chercher un don":     chercher_don.show()
-    elif page == "📦 Mes réservations":
-        st.title("📦 Mes réservations")
-        st.info("🚧 Page en cours de construction — reviens bientôt !")
+    elif page == "📦 Mes réservations":  gerer_reservations.show()
     elif page == "✅ Contrôle réception":  controle_reception.show()
-    elif page == "📋 Historique":
-        st.title("📋 Historique des collectes")
-        st.info("🚧 Page en cours de construction — reviens bientôt !")
-    elif page == "👤 Mes informations":
-        st.title("👤 Mes informations")
-        st.info("🚧 Page en cours de construction — reviens bientôt !")
+    elif page == "📋 Historique":          historique_association.show()
+    elif page == "👤 Mes informations":    mes_informations.show()

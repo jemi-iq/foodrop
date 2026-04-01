@@ -24,16 +24,16 @@ BADGE_BASE = (
 def badge_urgence(date_limite_str: str) -> str:
     if not date_limite_str:
         return ""
-    jours = (date.fromisoformat(date_limite_str) - date.today()).days
+    jours = (date.fromisoformat(date_limite_str[:10]) - date.today()).days
     if jours < 0:
         return f'<span style="{BADGE_BASE} background:#FDECEA; color:#7B2020;">⚡ Expiré</span>'
     if jours == 0:
-        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ Aujourd\'hui</span>'
+        return f'<span style="{BADGE_BASE} background:#FDECEA; color:#7B2020;">⚡ Expire aujourd\'hui</span>'
     if jours == 1:
-        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ Demain</span>'
-    if jours <= 2:
-        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ Urgent</span>'
-    return f'<span style="{BADGE_BASE} background:#E8F5D6; color:#1A4A10;">● Disponible</span>'
+        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ 1 jour restant</span>'
+    if jours <= 3:
+        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ {jours} jours restants</span>'
+    return f'<span style="{BADGE_BASE} background:#E8F5D6; color:#1A4A10;">✅ {jours} jours restants</span>'
 
 
 # ----------------------------------------------------------
@@ -278,12 +278,46 @@ def show():
                         key=f"asso_{don['id']}",
                     )
 
-                    date_retrait = st.date_input(
-                        "Date de retrait prévue *",
-                        value=date.today() + timedelta(days=1),
-                        min_value=date.today(),
-                        key=f"date_{don['id']}",
-                    )
+                    col_date, col_creneau = st.columns(2)
+
+                    with col_date:
+                        date_retrait = st.date_input(
+                            "Date de retrait *",
+                            value=date.today() + timedelta(days=1),
+                            min_value=date.today(),
+                            key=f"date_{don['id']}",
+                        )
+
+                    with col_creneau:
+                        # Créneaux suggérés par le magasin + créneaux standards
+                        creneaux_standards = [
+                            "07h00 - 08h00",
+                            "08h00 - 09h00",
+                            "09h00 - 10h00",
+                            "10h00 - 11h00",
+                            "11h00 - 12h00",
+                            "12h00 - 13h00",
+                            "14h00 - 15h00",
+                            "15h00 - 16h00",
+                            "16h00 - 17h00",
+                            "17h00 - 18h00",
+                            "18h00 - 19h00",
+                            "19h00 - 20h00",
+                        ]
+
+                        # Affiche le créneau suggéré par le magasin comme info
+                        if creneau and creneau != "—":
+                            st.markdown(
+                                f"<span style='font-family:Fraunces,serif; font-size:0.82rem; color:#4D8C1F;'>"
+                                f"💡 Créneau suggéré : <strong>{creneau}</strong></span>",
+                                unsafe_allow_html=True,
+                            )
+
+                        creneau_choisi = st.selectbox(
+                            "Créneau de retrait *",
+                            options=creneaux_standards,
+                            key=f"creneau_{don['id']}",
+                        )
 
                     col_valider, col_annuler = st.columns(2)
                     with col_valider:
@@ -293,12 +327,16 @@ def show():
 
                     if confirmer:
                         try:
+                            # Convertit "09h00 - 10h00" → "09:00" pour le timestamp
+                            heure_debut = creneau_choisi[:5].replace("h", ":")
+                            date_retrait_str = f"{date_retrait} {heure_debut}:00"
+
                             # 1. Crée la réservation
                             supabase.table("reservations").insert({
-                                "don_id":           don["id"],
-                                "association_id":   associations[asso_nom],
-                                "date_retrait_prevu": str(date_retrait),
-                                "statut_retrait_id": get_statut_retrait_prevu_id(),
+                                "don_id":             don["id"],
+                                "association_id":     associations[asso_nom],
+                                "date_retrait_prevu": date_retrait_str,
+                                "statut_retrait_id":  get_statut_retrait_prevu_id(),
                             }).execute()
 
                             # 2. Met à jour le statut du don → réservé
@@ -310,7 +348,11 @@ def show():
                             st.cache_data.clear()
                             st.session_state[f"reserver_{don['id']}"] = False
 
-                            st.success(f"🎉 Don réservé par **{asso_nom}** pour le {date_retrait.strftime('%d/%m/%Y')} !")
+                            st.success(
+                                f"🎉 Don réservé par **{asso_nom}** "
+                                f"le {date_retrait.strftime('%d/%m/%Y')} "
+                                f"entre {creneau_choisi} !"
+                            )
                             st.rerun()
 
                         except Exception as e:

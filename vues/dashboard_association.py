@@ -132,31 +132,20 @@ def get_reservations_recentes(association_id: str, limite: int = 8):
 def show():
     st.title("🏠 Dashboard Association")
 
-    # ── Sélecteur association ──────────────────────────────
+    # ── Récupère directement l'association connectée ───────
+    asso_id = st.session_state.get("entite_id")
+
+    if not asso_id:
+        st.error("❌ Session invalide. Reconnecte-toi.")
+        st.stop()
+
+    # Récupère le nom pour l'afficher
     try:
-        associations = get_associations()
-    except Exception as e:
-        st.error(f"❌ Connexion Supabase impossible : {e}")
-        st.stop()
-
-    if not associations:
-        st.warning("Aucune association trouvée. Crée d'abord une association dans Supabase → Table Editor → associations.")
-        st.stop()
-
-    col_select, col_refresh = st.columns([6, 1])
-    with col_select:
-        asso_nom = st.selectbox(
-            "Association affichée",
-            options=list(associations.keys()),
-            key="dashboard_asso_select",
-        )
-    with col_refresh:
-        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        if st.button("↻", key="refresh_asso"):
-            st.cache_data.clear()
-            st.rerun()
-
-    asso_id = associations[asso_nom]
+        res = supabase.table("associations").select("nom").eq("id", asso_id).single().execute()
+        asso_nom = res.data.get("nom", "Mon association")
+        st.caption(f"Bienvenue — {asso_nom}")
+    except Exception:
+        pass
 
     st.divider()
 

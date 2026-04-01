@@ -123,17 +123,16 @@ def badge_statut(libelle: str) -> str:
 def badge_urgence(date_limite_str: str) -> str:
     if not date_limite_str:
         return ""
-    jours = (date.fromisoformat(date_limite_str) - date.today()).days
-    style = f"{BADGE_BASE} background:#D4A820; color:#fff;"
+    jours = (date.fromisoformat(date_limite_str[:10]) - date.today()).days
     if jours < 0:
-        return f'<span style="{style}">⚡ Expiré</span>'
+        return f'<span style="{BADGE_BASE} background:#FDECEA; color:#7B2020;">⚡ Expiré</span>'
     if jours == 0:
-        return f'<span style="{style}">⚡ Aujourd\'hui</span>'
+        return f'<span style="{BADGE_BASE} background:#FDECEA; color:#7B2020;">⚡ Expire aujourd\'hui</span>'
     if jours == 1:
-        return f'<span style="{style}">⚡ Demain</span>'
-    if jours <= 2:
-        return f'<span style="{style}">⚡ Urgent</span>'
-    return ""
+        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ 1 jour restant</span>'
+    if jours <= 3:
+        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ {jours} jours restants</span>'
+    return f'<span style="{BADGE_BASE} background:#E8F5D6; color:#1A4A10;">✅ {jours} jours restants</span>'
 
 
 # ----------------------------------------------------------
@@ -143,30 +142,20 @@ def badge_urgence(date_limite_str: str) -> str:
 def show():
     st.title("🏠 Dashboard Magasin")
 
-    # ── Sélecteur de magasin (prototype sans login) ────────
+    # ── Récupère directement le magasin connecté ───────────
+    magasin_id = st.session_state.get("entite_id")
+
+    if not magasin_id:
+        st.error("❌ Session invalide. Reconnecte-toi.")
+        st.stop()
+
+    # Récupère le nom du magasin pour l'afficher
     try:
-        magasins = get_magasins()
-    except Exception as e:
-        st.error(f"❌ Connexion Supabase impossible : {e}")
-        st.stop()
-
-    if not magasins:
-        st.warning("Aucun magasin trouvé dans la base. Commence par en créer un dans Supabase.")
-        st.stop()
-
-    magasin_nom = st.selectbox(
-        "Magasin affiché",
-        options=list(magasins.keys()),
-        key="dashboard_magasin_select",
-    )
-    magasin_id = magasins[magasin_nom]
-
-    # Bouton rafraîchir
-    col_titre, col_refresh = st.columns([6, 1])
-    with col_refresh:
-        if st.button("↻ Actualiser", key="refresh_dashboard"):
-            st.cache_data.clear()
-            st.rerun()
+        res = supabase.table("magasins").select("nom").eq("id", magasin_id).single().execute()
+        magasin_nom = res.data.get("nom", "Mon magasin")
+        st.caption(f"Bienvenue — {magasin_nom}")
+    except Exception:
+        pass
 
     st.divider()
 

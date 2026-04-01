@@ -79,23 +79,10 @@ def show():
     st.title("✅ Contrôle à réception")
     st.caption("Remplis la checklist de conformité lors de la récupération d'un don")
 
-    # ── Sélecteur association ──────────────────────────────
-    try:
-        associations = get_associations()
-    except Exception as e:
-        st.error(f"❌ Connexion Supabase impossible : {e}")
+    asso_id = st.session_state.get("entite_id")
+    if not asso_id:
+        st.error("❌ Session invalide. Reconnecte-toi.")
         st.stop()
-
-    if not associations:
-        st.warning("Aucune association trouvée dans la base.")
-        st.stop()
-
-    asso_nom = st.selectbox(
-        "Ton association",
-        options=list(associations.keys()),
-        key="controle_asso_select",
-    )
-    asso_id = associations[asso_nom]
 
     st.divider()
 

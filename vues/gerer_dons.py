@@ -37,12 +37,16 @@ def badge_statut(libelle):
 def badge_urgence(date_limite_str):
     if not date_limite_str:
         return ""
-    jours = (date.fromisoformat(date_limite_str) - date.today()).days
+    jours = (date.fromisoformat(date_limite_str[:10]) - date.today()).days
     if jours < 0:
         return f'<span style="{BADGE_BASE} background:#FDECEA; color:#7B2020;">⚡ Expiré</span>'
-    if jours <= 2:
-        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ Urgent</span>'
-    return ""
+    if jours == 0:
+        return f'<span style="{BADGE_BASE} background:#FDECEA; color:#7B2020;">⚡ Expire aujourd\'hui</span>'
+    if jours == 1:
+        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ 1 jour restant</span>'
+    if jours <= 3:
+        return f'<span style="{BADGE_BASE} background:#D4A820; color:#fff;">⚡ {jours} jours restants</span>'
+    return f'<span style="{BADGE_BASE} background:#E8F5D6; color:#1A4A10;">✅ {jours} jours restants</span>'
 
 
 # ----------------------------------------------------------
@@ -84,31 +88,19 @@ def show():
     st.title("📦 Gérer les dons")
     st.caption("Consulte, filtre et mets à jour tes dons publiés")
 
-    # ── Sélecteur magasin ──────────────────────────────────
-    try:
-        magasins = get_magasins()
-    except Exception as e:
-        st.error(f"❌ Connexion Supabase impossible : {e}")
+    # ── Récupère directement le magasin connecté ───────────
+    magasin_id = st.session_state.get("entite_id")
+
+    if not magasin_id:
+        st.error("❌ Session invalide. Reconnecte-toi.")
         st.stop()
 
-    if not magasins:
-        st.warning("Aucun magasin trouvé dans la base.")
-        st.stop()
-
-    col_select, col_refresh = st.columns([6, 1])
-    with col_select:
-        magasin_nom = st.selectbox(
-            "Magasin",
-            options=list(magasins.keys()),
-            key="gerer_magasin_select",
-        )
+    col_titre, col_refresh = st.columns([6, 1])
     with col_refresh:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
         if st.button("↻", key="refresh_gerer"):
             st.cache_data.clear()
             st.rerun()
-
-    magasin_id = magasins[magasin_nom]
 
     st.divider()
 

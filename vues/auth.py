@@ -318,33 +318,62 @@ def _form_inscription_association():
 # Fonction principale
 # ----------------------------------------------------------
 
-def show():
-    """Affiche la page d'authentification (login + choix inscription)."""
+def show(onglet_actif: str = "connexion"):
+    """Affiche le bon formulaire selon l'action choisie depuis la landing."""
+
+    # Bouton retour vers la landing
+    if st.button("← Retour à l'accueil", key="retour_landing"):
+        st.session_state.landing_action = None
+        st.rerun()
 
     # Logo centré
     st.markdown("""
-    <div style="text-align:center; padding:2rem 0 1rem;">
+    <div style="text-align:center; padding:1.5rem 0 1rem;">
       <span style="font-family:'Syne',sans-serif; font-size:3rem; font-weight:800; color:#2A5C1E;">
         food<span style="color:#A8D455;">rop</span>
       </span>
       <p style="font-family:'Fraunces',serif; color:#6B7A5E; font-size:1rem; margin-top:4px;">
         Rien ne se gaspille, tout se partage.
-      </span>
+      </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Onglets : Connexion / Inscription Magasin / Inscription Association
-    onglet_co, onglet_mag, onglet_asso = st.tabs([
-        "🔑 Connexion",
-        "🏪 Inscription Magasin",
-        "🤝 Inscription Association",
-    ])
-
-    with onglet_co:
-        _form_connexion()
-
-    with onglet_mag:
+    # Affiche directement le bon formulaire
+    if onglet_actif == "inscription_magasin":
         _form_inscription_magasin()
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🤝 Inscrire mon association", key="switch_asso", use_container_width=True):
+                st.session_state.landing_action = "inscription_association"
+                st.rerun()
+        with col2:
+            if st.button("🔑 Me connecter", key="switch_login_mag", use_container_width=True):
+                st.session_state.landing_action = "connexion"
+                st.rerun()
 
-    with onglet_asso:
+    elif onglet_actif == "inscription_association":
         _form_inscription_association()
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🏪 Inscrire mon magasin", key="switch_mag", use_container_width=True):
+                st.session_state.landing_action = "inscription_magasin"
+                st.rerun()
+        with col2:
+            if st.button("🔑 Me connecter", key="switch_login_asso", use_container_width=True):
+                st.session_state.landing_action = "connexion"
+                st.rerun()
+
+    else:  # connexion par défaut
+        _form_connexion()
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🏪 Inscrire mon magasin", key="switch_mag2", use_container_width=True):
+                st.session_state.landing_action = "inscription_magasin"
+                st.rerun()
+        with col2:
+            if st.button("🤝 Inscrire mon association", key="switch_asso2", use_container_width=True):
+                st.session_state.landing_action = "inscription_association"
+                st.rerun()
