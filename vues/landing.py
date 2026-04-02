@@ -62,8 +62,10 @@ def show():
     # CSS spécifique landing (complète le CSS global de app.py)
     st.markdown("""
     <style>
-      /* Cache le header Streamlit sur la landing */
+      /* Cache le header Streamlit et supprime le padding du haut */
       [data-testid="stHeader"] { display: none; }
+      [data-testid="stAppViewContainer"] > section:first-child { padding-top: 0 !important; }
+      .block-container { padding-top: 0.5rem !important; }
 
       .hero-title {
         font-family: 'Syne', sans-serif;
@@ -222,9 +224,9 @@ def show():
     st.markdown(f"""
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <div style="display:flex; align-items:center; justify-content:space-between;
-                padding:1.2rem 0 1.4rem; flex-wrap:wrap; gap:1rem;">
+                padding:0.5rem 0 0.8rem; flex-wrap:wrap; gap:1rem;">
       <img src="data:image/svg+xml;base64,{logo_b64}"
-           style="height:80px; width:auto;" alt="Foodrop">
+           style="height:100px; width:auto;" alt="Foodrop">
       <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
         <a href="?action=inscription_association" class="navbar-btn"
           style="background:#2A5C1E; color:white !important; border:none; border-radius:50px;
