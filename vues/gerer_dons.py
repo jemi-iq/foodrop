@@ -85,6 +85,10 @@ def get_tous_statuts():
 # ----------------------------------------------------------
 
 def show():
+    from vues import fiche_don_magasin
+    if st.session_state.get("fiche_don_id"):
+        fiche_don_magasin.show(st.session_state["fiche_don_id"], retour_label="← Retour à mes dons", modifiable=True)
+        return
     st.title("📦 Gérer les dons")
     st.caption("Consulte, filtre et mets à jour tes dons publiés")
 
@@ -177,6 +181,7 @@ def show():
         st.stop()
 
     for don in dons:
+        don_id         = don["id"]
         statut_libelle = (don.get("statuts_don") or {}).get("libelle", "inconnu")
         categorie      = (don.get("categories") or {}).get("libelle", "—")
         unite          = (don.get("unites") or {}).get("libelle", "")
@@ -216,8 +221,12 @@ def show():
             with col_actions:
                 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
+                # ── Fiche traçabilité ───────────────────
+                if st.button("📋 Fiche", key=f"fiche_{don_id}", use_container_width=True):
+                    st.session_state["fiche_don_id"] = don_id
+                    st.rerun()
+
                 # ── Modifier le statut ──────────────────
-                # On ne propose que les transitions logiques
                 transitions = {
                     "disponible": ["reserve", "archive"],
                     "reserve":    ["disponible", "recupere", "archive"],
@@ -239,16 +248,10 @@ def show():
                         "Changer le statut",
                         options=["— Choisir —"] + options_transition,
                         format_func=lambda x: labels.get(x, x) if x != "— Choisir —" else "— Choisir —",
-                        key=f"statut_select_{don['id']}",
+                        key=f"statut_select_{don_id}",
                     )
-
                     if nouveau_statut != "— Choisir —":
-                        if st.button(
-                            "✅ Appliquer",
-                            key=f"appliquer_{don['id']}",
-                            use_container_width=True,
-                            type="primary",
-                        ):
+                        if st.button("✅ Appliquer", key=f"appliquer_{don_id}", use_container_width=True, type="primary"):
                             try:
                                 supabase.table("dons").update({
                                     "statut_don_id": statuts_map[nouveau_statut],
@@ -258,9 +261,63 @@ def show():
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Erreur : {e}")
-                else:
-                    st.markdown(
-                        "<p style='font-family:Fraunces,serif; color:#6B7A5E; "
-                        "font-size:0.82rem; font-style:italic;'>Aucune action disponible</p>",
-                        unsafe_allow_html=True,
+
+                # ── Bouton Modifier (seulement si disponible) ──
+                if statut_libelle == "disponible":
+                    if st.button("✏️ Modifier", key=f"btn_modif_{don_id}", use_container_width=True):
+                        st.session_state[f"modif_ouvert_{don_id}"] = not st.session_state.get(f"modif_ouvert_{don_id}", False)
+                        st.rerun()
+
+
+        # ── Formulaire de modification inline ──────────────
+        if st.session_state.get(f"modif_ouvert_{don_id}"):
+            with st.container(border=True):
+                st.markdown(
+                    f"<p style='font-family:Syne,sans-serif; font-weight:700; color:#2A5C1E; margin:0;'>"
+                    f"✏️ Modifier — {don.get('produit')}</p>",
+                    unsafe_allow_html=True,
+                )
+                with st.form(key=f"form_modif_{don_id}"):
+                    col_m1, col_m2 = st.columns(2)
+                    with col_m1:
+                        nouvelle_quantite = st.number_input(
+                            "Quantité", min_value=1, step=1,
+                            value=int(don.get("quantite", 1)),
+                            format="%d", key=f"qte_{don_id}"
+                        )
+                    with col_m2:
+                        nouveau_creneau = st.text_input(
+                            "Créneau de retrait",
+                            value=don.get("creneau_retrait") or "",
+                            key=f"cren_{don_id}"
+                        )
+                    nouveau_commentaire = st.text_area(
+                        "Commentaires",
+                        value=don.get("commentaires") or "",
+                        height=80,
+                        key=f"com_{don_id}"
                     )
+                    col_sauv, col_ferm = st.columns(2)
+                    with col_sauv:
+                        sauvegarder = st.form_submit_button("💾 Sauvegarder", use_container_width=True)
+                    with col_ferm:
+                        fermer = st.form_submit_button("✖ Fermer", use_container_width=True)
+
+                if fermer:
+                    st.session_state[f"modif_ouvert_{don_id}"] = False
+                    st.rerun()
+
+                if sauvegarder:
+                    try:
+                        supabase.table("dons").update({
+                            "quantite":        int(nouvelle_quantite),
+                            "creneau_retrait": nouveau_creneau.strip() or None,
+                            "commentaires":    nouveau_commentaire.strip() or None,
+                        }).eq("id", don["id"]).execute()
+                        st.cache_data.clear()
+                        st.session_state[f"modif_ouvert_{don_id}"] = False
+                        st.success("✅ Don mis à jour !")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erreur : {e}")
+                    

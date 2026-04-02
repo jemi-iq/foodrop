@@ -57,13 +57,14 @@ def get_dons_disponibles():
         supabase.table("dons")
         .select(
             "id, produit, quantite, date_limite, date_publication, "
+            "magasin_id, "
             "condition_conservation, creneau_retrait, commentaires, "
             "numero_lot, photo_etiquette_url, "
             "categories(libelle), unites(libelle), "
             "types_limite(libelle), magasins(nom, ville, adresse)"
         )
         .eq("statut_don_id", statut_id)
-        .order("date_limite", desc=False)   # Les plus urgents en premier
+        .order("date_limite", desc=False)
         .execute()
     )
     return res.data
@@ -123,6 +124,130 @@ def show():
     if not tous_les_dons:
         st.info("Aucun don disponible pour le moment. Reviens bientôt !")
         return
+
+    # ── CARTE DES MAGASINS ─────────────────────────────────
+    st.markdown("### 🗺️ Carte des magasins")
+
+    try:
+        import folium
+        from streamlit_folium import st_folium
+        from geopy.geocoders import Nominatim
+        from geopy.distance import geodesic
+
+        # Barre de recherche + périmètre
+        col_adr, col_km = st.columns([3, 1])
+        with col_adr:
+            adresse_recherche = st.text_input(
+                "📍 Mon adresse",
+                placeholder="Ex : 19 Rue Pierre Waguet, Beauvais",
+                key="carte_adresse",
+            )
+        with col_km:
+            perimetre_km = st.selectbox(
+                "Périmètre",
+                options=[5, 10, 20, 50, 100],
+                index=1,
+                key="carte_perimetre",
+                format_func=lambda x: f"{x} km",
+            )
+
+        # Charge les magasins avec leurs dons disponibles
+        magasins_raw = (
+            supabase.table("magasins")
+            .select("id, nom, adresse, ville, code_postal")
+            .execute()
+            .data
+        )
+
+        # Géocode les adresses des magasins
+        geolocator = Nominatim(user_agent="foodrop_app", timeout=5)
+
+        @st.cache_data(ttl=3600)
+        def geocode_adresse(adresse_str):
+            try:
+                loc = Nominatim(user_agent="foodrop_app", timeout=5).geocode(adresse_str)
+                return (loc.latitude, loc.longitude) if loc else None
+            except Exception:
+                return None
+
+        # Géocode l'adresse de recherche si fournie
+        coord_recherche = None
+        if adresse_recherche.strip():
+            coord_recherche = geocode_adresse(adresse_recherche.strip())
+            if not coord_recherche:
+                st.warning("⚠️ Adresse introuvable. Essaie d'être plus précis.")
+
+        # Centre de la carte
+        if coord_recherche:
+            centre = coord_recherche
+        else:
+            centre = (49.4431, 2.0833)  # Beauvais par défaut
+
+        # Crée la carte
+        m = folium.Map(location=centre, zoom_start=11 if coord_recherche else 8,
+                       tiles="CartoDB positron")
+
+        # Cercle de périmètre si adresse fournie
+        if coord_recherche:
+            folium.Circle(
+                location=coord_recherche,
+                radius=perimetre_km * 1000,
+                color="#D4A820",
+                fill=True,
+                fill_color="#D4A820",
+                fill_opacity=0.08,
+                weight=2,
+            ).add_to(m)
+            folium.Marker(
+                location=coord_recherche,
+                popup="📍 Ma position",
+                icon=folium.Icon(color="orange", icon="home", prefix="fa"),
+            ).add_to(m)
+
+        # Compte les dons disponibles par magasin
+        dons_par_magasin = {}
+        for don in tous_les_dons:
+            mag_id = don.get("magasin_id")
+            if mag_id:
+                dons_par_magasin[mag_id] = dons_par_magasin.get(mag_id, 0) + 1
+
+        # Place les marqueurs
+        magasins_affiches = 0
+        for mag in magasins_raw:
+            adresse_mag = f"{mag.get('adresse', '')}, {mag.get('code_postal', '')} {mag.get('ville', '')}"
+            coords = geocode_adresse(adresse_mag)
+            if not coords:
+                continue
+
+            # Filtre par périmètre si adresse fournie
+            if coord_recherche:
+                dist = geodesic(coord_recherche, coords).km
+                if dist > perimetre_km:
+                    continue
+
+            nb_dons = dons_par_magasin.get(mag["id"], 0)
+            couleur = "green" if nb_dons > 0 else "gray"
+            label   = f"🏪 {mag['nom']}<br>📦 {nb_dons} don(s) disponible(s)<br>📍 {mag.get('ville', '')}"
+
+            folium.Marker(
+                location=coords,
+                popup=folium.Popup(label, max_width=200),
+                tooltip=f"{mag['nom']} — {nb_dons} don(s)",
+                icon=folium.Icon(color=couleur, icon="shopping-cart", prefix="fa"),
+            ).add_to(m)
+            magasins_affiches += 1
+
+        st_folium(m, use_container_width=True, height=380, returned_objects=[])
+
+        if coord_recherche:
+            st.caption(f"🔍 {magasins_affiches} magasin(s) dans un rayon de {perimetre_km} km")
+
+    except ImportError:
+        st.info("📦 Installe `streamlit-folium` et `geopy` pour afficher la carte.")
+    except Exception as e:
+        st.warning(f"⚠️ Carte indisponible : {e}")
+
+    st.divider()
 
     # ── FILTRES ────────────────────────────────────────────
     st.markdown("### 🎛️ Filtres")
@@ -266,56 +391,57 @@ def show():
                     unsafe_allow_html=True,
                 )
 
-                if not associations:
-                    st.warning("Aucune association trouvée. Crée d'abord une association dans Supabase.")
+                if not st.session_state.get("entite_id"):
+                    st.warning("Session invalide. Reconnecte-toi.")
                     if st.form_submit_button("Fermer"):
                         st.session_state[f"reserver_{don['id']}"] = False
                         st.rerun()
                 else:
-                    asso_nom = st.selectbox(
-                        "Ton association *",
-                        options=list(associations.keys()),
-                        key=f"asso_{don['id']}",
-                    )
+                    asso_id = st.session_state["entite_id"]
 
                     col_date, col_creneau = st.columns(2)
 
+                    # Extrait jours et plages du créneau magasin
+                    # Format : "Lundi, Mardi · 08h00 - 09h00, 14h00 - 15h00"
+                    JOURS_SEMAINE = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
+                    JOURS_INDEX   = {j: i for i, j in enumerate(JOURS_SEMAINE)}
+
+                    jours_magasin = []
+                    plages_magasin = []
+                    if creneau and creneau != "—" and "·" in creneau:
+                        partie_jours  = creneau.split("·")[0].strip()
+                        partie_plages = creneau.split("·")[1].strip()
+                        jours_magasin  = [j.strip() for j in partie_jours.split(",") if j.strip() in JOURS_INDEX]
+                        plages_magasin = [p.strip() for p in partie_plages.split(",") if p.strip()]
+
+                    if not jours_magasin:
+                        jours_magasin = JOURS_SEMAINE
+                    if not plages_magasin:
+                        plages_magasin = ["08h00 - 09h00", "14h00 - 15h00"]
+
                     with col_date:
-                        date_retrait = st.date_input(
-                            "Date de retrait *",
-                            value=date.today() + timedelta(days=1),
-                            min_value=date.today(),
-                            key=f"date_{don['id']}",
+                        jour_choisi = st.selectbox(
+                            "Jour de retrait *",
+                            options=jours_magasin,
+                            key=f"jour_{don['id']}",
+                        )
+                        # Calcule la prochaine date correspondant au jour choisi
+                        idx_cible = JOURS_INDEX[jour_choisi]
+                        aujourd_hui = date.today()
+                        delta = (idx_cible - aujourd_hui.weekday()) % 7
+                        if delta == 0:
+                            delta = 7  # Pas aujourd'hui, la semaine prochaine
+                        date_retrait = aujourd_hui + timedelta(days=delta)
+                        st.markdown(
+                            f"<span style='font-family:Fraunces,serif; font-size:0.82rem; color:#4D8C1F;'>"
+                            f"📅 Date : <strong>{date_retrait.strftime('%d/%m/%Y')}</strong></span>",
+                            unsafe_allow_html=True,
                         )
 
                     with col_creneau:
-                        # Créneaux suggérés par le magasin + créneaux standards
-                        creneaux_standards = [
-                            "07h00 - 08h00",
-                            "08h00 - 09h00",
-                            "09h00 - 10h00",
-                            "10h00 - 11h00",
-                            "11h00 - 12h00",
-                            "12h00 - 13h00",
-                            "14h00 - 15h00",
-                            "15h00 - 16h00",
-                            "16h00 - 17h00",
-                            "17h00 - 18h00",
-                            "18h00 - 19h00",
-                            "19h00 - 20h00",
-                        ]
-
-                        # Affiche le créneau suggéré par le magasin comme info
-                        if creneau and creneau != "—":
-                            st.markdown(
-                                f"<span style='font-family:Fraunces,serif; font-size:0.82rem; color:#4D8C1F;'>"
-                                f"💡 Créneau suggéré : <strong>{creneau}</strong></span>",
-                                unsafe_allow_html=True,
-                            )
-
                         creneau_choisi = st.selectbox(
-                            "Créneau de retrait *",
-                            options=creneaux_standards,
+                            "Plage horaire *",
+                            options=plages_magasin,
                             key=f"creneau_{don['id']}",
                         )
 
@@ -327,30 +453,25 @@ def show():
 
                     if confirmer:
                         try:
-                            # Convertit "09h00 - 10h00" → "09:00" pour le timestamp
                             heure_debut = creneau_choisi[:5].replace("h", ":")
                             date_retrait_str = f"{date_retrait} {heure_debut}:00"
 
-                            # 1. Crée la réservation
                             supabase.table("reservations").insert({
                                 "don_id":             don["id"],
-                                "association_id":     associations[asso_nom],
+                                "association_id":     asso_id,
                                 "date_retrait_prevu": date_retrait_str,
                                 "statut_retrait_id":  get_statut_retrait_prevu_id(),
                             }).execute()
 
-                            # 2. Met à jour le statut du don → réservé
                             supabase.table("dons").update({
                                 "statut_don_id": get_statut_reserve_id(),
                             }).eq("id", don["id"]).execute()
 
-                            # 3. Nettoie le cache et ferme le formulaire
                             st.cache_data.clear()
                             st.session_state[f"reserver_{don['id']}"] = False
 
                             st.success(
-                                f"🎉 Don réservé par **{asso_nom}** "
-                                f"le {date_retrait.strftime('%d/%m/%Y')} "
+                                f"🎉 Don réservé pour le {date_retrait.strftime('%d/%m/%Y')} "
                                 f"entre {creneau_choisi} !"
                             )
                             st.rerun()

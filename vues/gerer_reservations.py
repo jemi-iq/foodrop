@@ -54,7 +54,7 @@ def get_reservations_en_cours(association_id: str):
     )
     return [
         r for r in res.data
-        if (r.get("statuts_retrait") or {}).get("libelle") == "prevu"
+        if not r.get("date_retrait_reel")
     ]
 
 
@@ -88,6 +88,14 @@ def _formulaire_controle(resa_id: str, don: dict, asso_id: str):
         with st.form(key=f"form_controle_{resa_id}"):
 
             st.markdown("#### 📋 Checklist")
+            st.markdown("""
+            <style>
+              [data-baseweb="radio"] [data-checked="true"] > div:first-child {
+                background-color: #D4A820 !important;
+                border-color: #D4A820 !important;
+              }
+            </style>
+            """, unsafe_allow_html=True)
             col1, col2 = st.columns(2)
             with col1:
                 produit_conforme = st.radio("Produit conforme", ["✅ Oui", "❌ Non"], horizontal=True, key=f"pc_{resa_id}")
@@ -115,7 +123,7 @@ def _formulaire_controle(resa_id: str, don: dict, asso_id: str):
 
             col_val, col_ann = st.columns(2)
             with col_val:
-                valider = st.form_submit_button("✅ Valider le contrôle", type="primary", use_container_width=True)
+                valider = st.form_submit_button("✅ Valider le contrôle", use_container_width=True)
             with col_ann:
                 fermer = st.form_submit_button("✖ Fermer", use_container_width=True)
 
@@ -177,6 +185,13 @@ def _formulaire_controle(resa_id: str, don: dict, asso_id: str):
 
 
 def show():
+    from vues import fiche_tracabilite
+
+    # Si une fiche est ouverte, on l'affiche à la place
+    if st.session_state.get("fiche_resa_id"):
+        fiche_tracabilite.show(st.session_state["fiche_resa_id"], retour_label="← Retour à mes réservations")
+        return
+
     st.title("📦 Mes réservations")
     st.caption("Gère tes dons réservés et effectue les contrôles à réception")
 
@@ -229,6 +244,8 @@ def show():
             st.session_state[f"controle_ouvert_{resa_id}"] = False
         if f"annuler_{resa_id}" not in st.session_state:
             st.session_state[f"annuler_{resa_id}"] = False
+        if f"retrait_confirme_{resa_id}" not in st.session_state:
+            st.session_state[f"retrait_confirme_{resa_id}"] = False
 
         with st.container(border=True):
             col_info, col_actions = st.columns([3, 1])
@@ -260,14 +277,37 @@ def show():
             with col_actions:
                 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-                label_ctrl = "🔒 Fermer" if st.session_state[f"controle_ouvert_{resa_id}"] else "✅ Contrôle réception"
-                if st.button(label_ctrl, key=f"btn_ctrl_{resa_id}", use_container_width=True, type="primary"):
-                    st.session_state[f"controle_ouvert_{resa_id}"] = not st.session_state[f"controle_ouvert_{resa_id}"]
+                # ── Voir la fiche ───────────────────────
+                if st.button("📋 Fiche traçabilité", key=f"btn_fiche_{resa_id}", use_container_width=True):
+                    st.session_state["fiche_resa_id"] = resa_id
                     st.rerun()
 
-                if st.button("✖ Annuler", key=f"btn_ann_{resa_id}", use_container_width=True):
-                    st.session_state[f"annuler_{resa_id}"] = True
-                    st.rerun()
+                # ── Confirmer le retrait ────────────────
+                if not st.session_state.get(f"retrait_confirme_{resa_id}"):
+                    if st.button("🚚 Confirmer le retrait", key=f"btn_retrait_{resa_id}", use_container_width=True):
+                        try:
+                            supabase.table("reservations").update({
+                                "date_retrait_reel": str(date.today()),
+                            }).eq("id", resa_id).execute()
+                            st.cache_data.clear()
+                            st.session_state[f"retrait_confirme_{resa_id}"] = True
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erreur : {e}")
+
+                # ── Contrôle à réception ────────────────
+                # Disponible seulement après confirmation du retrait
+                if st.session_state.get(f"retrait_confirme_{resa_id}"):
+                    label_ctrl = "🔒 Fermer" if st.session_state[f"controle_ouvert_{resa_id}"] else "✅ Contrôle réception"
+                    if st.button(label_ctrl, key=f"btn_ctrl_{resa_id}", use_container_width=True, type="primary"):
+                        st.session_state[f"controle_ouvert_{resa_id}"] = not st.session_state[f"controle_ouvert_{resa_id}"]
+                        st.rerun()
+
+                # ── Annuler ─────────────────────────────
+                if not st.session_state.get(f"retrait_confirme_{resa_id}"):
+                    if st.button("✖ Annuler", key=f"btn_ann_{resa_id}", use_container_width=True):
+                        st.session_state[f"annuler_{resa_id}"] = True
+                        st.rerun()
 
         # Confirmation annulation
         if st.session_state[f"annuler_{resa_id}"]:

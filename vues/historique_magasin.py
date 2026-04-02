@@ -67,6 +67,10 @@ def get_historique_magasin(magasin_id: str):
 # ----------------------------------------------------------
 
 def show():
+    from vues import fiche_don_magasin
+    if st.session_state.get("fiche_don_id"):
+        fiche_don_magasin.show(st.session_state["fiche_don_id"], retour_label="← Retour à l'historique", modifiable=False)
+        return
     st.title("📋 Historique des dons")
     st.caption("Consulte tous tes dons publiés et leur parcours")
 
@@ -214,3 +218,7 @@ def show():
             with col_badge:
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
                 st.markdown(badge_statut(statut_lib), unsafe_allow_html=True)
+                don_id = don["id"]
+                if st.button("📋 Fiche", key=f"fiche_{don_id}", use_container_width=True):
+                    st.session_state["fiche_don_id"] = don_id
+                    st.rerun()

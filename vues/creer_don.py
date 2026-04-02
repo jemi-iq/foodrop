@@ -129,6 +129,14 @@ def show():
                 min_value=date.today(),
             )
         st.markdown("### 🕐 Créneaux de retrait")
+        st.markdown("""
+        <style>
+          [data-baseweb="checkbox"] [data-checked="true"] > div:first-child {
+            background-color: #D4A820 !important;
+            border-color: #D4A820 !important;
+          }
+        </style>
+        """, unsafe_allow_html=True)
         st.caption("Sélectionne les jours et les plages horaires disponibles.")
 
         # Jours — cases à cocher
@@ -158,14 +166,6 @@ def show():
             )
         else:
             creneau_retrait = ""
-            if not jours_selectionnes:
-                st.markdown(
-                    '<span style="font-family:Fraunces,serif; font-size:0.88rem; color:#C0392B;">'
-                    '⚠️ Sélectionne au moins un jour.</span>', unsafe_allow_html=True)
-            if not plages_choisies:
-                st.markdown(
-                    '<span style="font-family:Fraunces,serif; font-size:0.88rem; color:#C0392B;">'
-                    '⚠️ Sélectionne au moins une plage horaire.</span>', unsafe_allow_html=True)
 
         # ── SECTION 4 : Photos & remarques ────────────────
         st.markdown("### 📷 Photos & remarques")

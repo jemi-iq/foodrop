@@ -347,18 +347,19 @@ def show():
 
     with p1:
         st.markdown("""
-        <div style="background:#2A5C1E; border-radius:20px; padding:2rem; text-align:center;">
+        <div style="background:transparent; border-radius:20px; padding:2rem; text-align:center;
+                    border: 2px solid #D4A820;">
           <p style="font-size:2.5rem; margin:0;">🏪</p>
           <p style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.3rem;
-                    color:white; margin:0.75rem 0 0.5rem;">Je suis un magasin</p>
-          <p style="font-family:'Fraunces',serif; color:rgba(255,255,255,0.8);
+                    color:#D4A820; margin:0.75rem 0 0.5rem;">Je suis un magasin</p>
+          <p style="font-family:'Fraunces',serif; color:#6B7A5E;
                     font-size:0.92rem; line-height:1.6; margin-bottom:1.5rem;">
             Publie tes invendus en quelques clics. Réduis ton gaspillage
             et contribue à ta communauté locale.
           </p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("🏪 Inscrire mon magasin →", key="cta_mag2", use_container_width=True):
+        if st.button("🏪 Inscrire mon magasin →", key="cta_mag2", use_container_width=True, type="primary"):
             st.session_state.landing_action = "inscription_magasin"
             st.rerun()
 

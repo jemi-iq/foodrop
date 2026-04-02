@@ -16,7 +16,6 @@ from config import supabase
 # ----------------------------------------------------------
 # Badges inline
 # ----------------------------------------------------------
-
 BADGE_BASE = (
     "padding:3px 12px; border-radius:20px; font-size:0.8rem; "
     "font-family:'Syne',sans-serif; font-weight:700; display:inline-block;"
@@ -89,6 +88,13 @@ def get_controles_association(association_id: str):
 # ----------------------------------------------------------
 
 def show():
+    from vues import fiche_tracabilite
+
+    # Si une fiche est ouverte, on l'affiche à la place
+    if st.session_state.get("fiche_resa_id"):
+        fiche_tracabilite.show(st.session_state["fiche_resa_id"], retour_label="← Retour à l'historique")
+        return
+
     st.title("📋 Historique des collectes")
     st.caption("Consulte toutes tes réservations et les résultats des contrôles")
 
@@ -280,3 +286,7 @@ def show():
                 st.markdown(badge_retrait(statut_ret), unsafe_allow_html=True)
                 if controle:
                     st.markdown(badge_decision(controle.get("decision", "")), unsafe_allow_html=True)
+                resa_id = resa["id"]
+                if st.button("📋 Fiche traçabilité", key=f"fiche_{resa_id}", use_container_width=True):
+                    st.session_state["fiche_resa_id"] = resa_id
+                    st.rerun()

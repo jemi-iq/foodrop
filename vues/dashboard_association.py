@@ -143,7 +143,6 @@ def show():
     try:
         res = supabase.table("associations").select("nom").eq("id", asso_id).single().execute()
         asso_nom = res.data.get("nom", "Mon association")
-        st.caption(f"Bienvenue — {asso_nom}")
     except Exception:
         pass
 

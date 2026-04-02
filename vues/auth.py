@@ -187,14 +187,14 @@ def _form_inscription_magasin():
                 "entite_id":        magasin_id,
             }).execute()
 
-            # 4. Connecte directement
+            # 4. Connecte et redirige vers la bienvenue
             st.session_state.user_id          = user_id
             st.session_state.user_email       = contact_email.strip()
+            st.session_state.user_prenom      = contact_prenom.strip()
             st.session_state.type_utilisateur = "magasin"
             st.session_state.entite_id        = magasin_id
             st.session_state.connecte         = True
-
-            st.success(f"🎉 Bienvenue {contact_prenom.strip()} ! Ton compte magasin est créé.")
+            st.session_state.bienvenue        = True
             st.rerun()
 
         except Exception as e:
@@ -296,14 +296,14 @@ def _form_inscription_association():
                 "entite_id":        asso_id,
             }).execute()
 
-            # 4. Connecte directement
+            # 4. Connecte et redirige vers la bienvenue
             st.session_state.user_id          = user_id
             st.session_state.user_email       = contact_email.strip()
+            st.session_state.user_prenom      = contact_prenom.strip()
             st.session_state.type_utilisateur = "association"
             st.session_state.entite_id        = asso_id
             st.session_state.connecte         = True
-
-            st.success(f"🎉 Bienvenue {contact_prenom.strip()} ! Ton compte association est créé.")
+            st.session_state.bienvenue        = True
             st.rerun()
 
         except Exception as e:
